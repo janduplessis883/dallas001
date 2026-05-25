@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Iterable
 
 import streamlit as st
@@ -12,7 +13,7 @@ client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # Simple function to get a response from Groq
 @st.cache_resource
-def ask_groq(prompt: str, model: str = "openai/gpt-oss-120b"):
+def ask_groq(prompt: str, model: str = "llama-3.3-70b-versatile"):
     chat_completion = client.chat.completions.create(
         messages=[
             {
@@ -49,9 +50,9 @@ class Section:
 
 
 STYLE_OPTIONS = [
+    "Poetic and visionary",
     "Grounded and compassionate",
     "Bold and prophetic",
-    "Poetic and visionary",
     "Direct and practical",
     "Spiritual but accessible",
 ]
@@ -64,14 +65,12 @@ VERSION_OPTIONS = [
     "Future-self letter",
 ]
 
-DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
+DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
 
 GROQ_MODEL_OPTIONS = {
-    "openai/gpt-oss-120b": "OpenAI GPT-OSS 120B",
     "llama-3.3-70b-versatile": "Llama 3.3 70B",
-    "groq/compound": "Groq Compound",
-    "meta-llama/llama-4-scout-17b-16e-instruct": "Llama 4 Scout 17B 16E",
     "qwen/qwen3-32b": "Qwen3 32B",
+    "groq/compound": "Groq Compound",
 }
 
 SECTIONS = [
@@ -229,6 +228,9 @@ SECTIONS = [
     ),
 ]
 
+NEW_VISION_SECTIONS = SECTIONS[:7]
+REVIEW_VISION_SECTIONS = SECTIONS[8:]
+
 
 def ask_grok(prompt: str) -> str:
     """Replace this stub with your Grok API call using st.secrets."""
@@ -239,6 +241,10 @@ def ask_grok(prompt: str) -> str:
 
 def text_value(key: str) -> str:
     return str(st.session_state.get(key, "")).strip()
+
+
+def remove_thinking_blocks(text: str) -> str:
+    return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
 
 
 def completion_stats(questions: Iterable[Question]) -> tuple[int, int]:
@@ -271,18 +277,28 @@ def build_master_prompt(
     tone: str,
     audience: str,
     extra_guidance: str,
+    model: str,
+    sections: list[Section] | tuple[Section, ...],
 ) -> str:
     filled_sections = [
         section_markdown(section)
-        for section in SECTIONS
+        for section in sections
         if any(text_value(question.key) for question in section.questions)
     ]
     versions = "\n".join(f"- {version}" for version in selected_versions)
 
     guidance = extra_guidance.strip() or "Keep the language emotionally honest, specific, empowering, and grounded."
     audience_line = audience.strip() or "the person who completed this worksheet"
+    selected_versions_text = ", ".join(selected_versions)
 
     return f"""You are Groq, helping {audience_line} write a prophetic vision for personal transformation.
+
+Sidebar settings selected by the user:
+- Name / audience: {audience_line}
+- Selected LLM model: {model}
+- Selected output versions: {selected_versions_text}
+- Selected tone: {tone}
+- Extra instructions: {guidance}
 
 Create the following versions:
 {versions}
@@ -290,6 +306,7 @@ Create the following versions:
 Preferred tone: {tone}
 
 Writing guidance:
+- Do not include hidden reasoning, chain-of-thought, or <think>...</think> blocks in the response.
 - Use the user's own language and themes wherever possible.
 - Do not invent trauma details or life events that are not provided.
 - Write in first person unless a version clearly works better in second person.
@@ -306,6 +323,63 @@ Return the versions with clear headings. End with 3 brief integration prompts th
 """
 
 
+def build_review_prompt(
+    selected_versions: list[str],
+    tone: str,
+    audience: str,
+    extra_guidance: str,
+    model: str,
+    previous_vision: str,
+) -> str:
+    filled_sections = [
+        section_markdown(section)
+        for section in REVIEW_VISION_SECTIONS
+        if any(text_value(question.key) for question in section.questions)
+    ]
+    versions = "\n".join(f"- {version}" for version in selected_versions)
+
+    guidance = extra_guidance.strip() or "Keep the updated vision emotionally honest, specific, empowering, and grounded."
+    audience_line = audience.strip() or "the person reviewing this prophetic vision"
+    selected_versions_text = ", ".join(selected_versions)
+
+    return f"""You are helping {audience_line} review and update an existing prophetic vision.
+
+Sidebar settings selected by the user:
+- Name / audience: {audience_line}
+- Selected LLM model: {model}
+- Selected output versions: {selected_versions_text}
+- Selected tone: {tone}
+- Extra instructions: {guidance}
+
+Update the original prophetic vision using the review responses below. Preserve what still feels alive and true, remove or revise what no longer fits, and make the updated vision more aligned with the user's current growth.
+
+Create the following updated versions:
+{versions}
+
+Preferred tone: {tone}
+
+Writing guidance:
+- Do not include hidden reasoning, chain-of-thought, or <think>...</think> blocks in the response.
+- Use the user's original vision as the foundation.
+- Use the review responses as the source of truth for what needs to change.
+- Do not invent trauma details or life events that are not provided.
+- Write in first person unless a version clearly works better in second person.
+- Make the update feel like a natural evolution of the original vision.
+- Avoid generic self-help language.
+- {guidance}
+
+Original prophetic vision:
+
+{previous_vision.strip() if previous_vision.strip() else "No previous vision was provided."}
+
+Review and adjustment responses:
+
+{chr(10).join(filled_sections) if filled_sections else "No review responses were provided yet."}
+
+Return the updated versions with clear headings. End with 3 brief reflection prompts for the next review cycle.
+"""
+
+
 def render_sidebar() -> tuple[list[str], str, str, str, str]:
     with st.sidebar:
         st.header(":material/settings: LLM Settings")
@@ -314,6 +388,7 @@ def render_sidebar() -> tuple[list[str], str, str, str, str]:
             options=list(GROQ_MODEL_OPTIONS.keys()),
             index=list(GROQ_MODEL_OPTIONS.keys()).index(DEFAULT_GROQ_MODEL),
             format_func=lambda model_id: f"{GROQ_MODEL_OPTIONS[model_id]} ({model_id})",
+            help="Choose the language model to generate your prophetic vision. Qwen3 32B is a powerful general-purpose model, Groq Compound is optimized for complex reasoning tasks, and Llama 3.3 70B is known for its creativity and nuanced understanding. Feel free to experiment with different models to see which one resonates best with you and produces the most inspiring vision."
         )
         selected_versions = st.multiselect(
             "Vision versions",
@@ -323,7 +398,7 @@ def render_sidebar() -> tuple[list[str], str, str, str, str]:
                 "One-page prophetic vision",
             ],
         )
-        tone = st.selectbox("Tone", STYLE_OPTIONS, index=0)
+        tone = st.selectbox("Tone", STYLE_OPTIONS, index=0, help="The overall style and voice of the prophetic vision. Choose the one that resonates most with you. Revise it, and re-generate you vision to align with your current growth and insights.")
         audience = st.text_input(
             "What is your name?",
             placeholder="Enter your name",
@@ -335,8 +410,22 @@ def render_sidebar() -> tuple[list[str], str, str, str, str]:
             help="Use this space to give the model any extra instructions that will help it create a vision that feels authentic and inspiring to you. For example, you can specify a preferred voice, any faith language you want included or excluded, length preferences, or anything else that will help guide the model to create something that really resonates with you.",
         )
         st.caption("`© 2026 Coaching with Dr. Dallas Bragg`")
-        st.image('images/logo3.png', width=200)
+        st.image('images/logo3.png')
     return selected_versions, tone, audience, extra_guidance, model
+
+
+def render_sections(sections: list[Section] | tuple[Section, ...]) -> None:
+    for index, section in enumerate(sections):
+        answered_section, total_section = completion_stats(section.questions)
+        expanded = index == 0 or (answered_section > 0 and answered_section < total_section)
+        with st.expander(
+            f"{section.title} - {answered_section}/{total_section}",
+            expanded=expanded,
+            icon=section.icon,
+        ):
+            st.write(section.intro)
+            for question in section.questions:
+                render_question(question)
 
 
 def main() -> None:
@@ -347,32 +436,73 @@ def main() -> None:
 
     selected_versions, tone, audience, extra_guidance, model = render_sidebar()
 
-    all_questions = [question for section in SECTIONS for question in section.questions]
+    current_review_mode = st.session_state.get("review_mode", False)
+    output_tab_label = "Update Your Prophetic Vision" if current_review_mode else "Create Your Prophetic Vision"
+    tab_questions, tab_prompt, tab_grok = st.tabs(["Questions", "Master Prompt", output_tab_label])
+
+    with tab_questions:
+        review_mode = st.toggle(
+            "Review or update a previously created prophetic vision",
+            value=False,
+            key="review_mode",
+            help="Turn this on if you already have a prophetic vision and want to test, refine, and update it.",
+        )
+
+    active_sections = REVIEW_VISION_SECTIONS if review_mode else NEW_VISION_SECTIONS
+    all_questions = [question for section in active_sections for question in section.questions]
     answered, total = completion_stats(all_questions)
     st.progress(answered / total if total else 0, text=f"{answered} of {total} prompts completed")
 
-    tab_questions, tab_prompt, tab_grok = st.tabs(["Questions", "Master Prompt", "Create Your Prophetic Vision"])
-
     with tab_questions:
-        st.caption("Answer the reflection prompts in each section. The more you answer, the richer your prophetic vision will be. Don't worry about answering them all - you can always come back and fill in more later to deepen the vision over time.")
-        for index, section in enumerate(SECTIONS):
-            answered_section, total_section = completion_stats(section.questions)
-            expanded = index == 0 or (answered_section > 0 and answered_section < total_section)
-            with st.expander(
-                f"{section.title} - {answered_section}/{total_section}",
-                expanded=expanded,
-                icon=section.icon,
-            ):
-                st.write(section.intro)
-                for question in section.questions:
-                    render_question(question)
+        if review_mode:
+            st.caption("Upload or paste your previous prophetic vision, then answer Parts 7-10 to help the LLM update it with your current growth and needed adjustments.")
+            uploaded_vision = st.file_uploader(
+                "Upload your previous prophetic vision",
+                type=["md", "txt"],
+                help="Upload the Markdown or text file you downloaded from a previous session.",
+            )
+            if uploaded_vision is not None:
+                st.session_state["previous_vision_text"] = uploaded_vision.getvalue().decode("utf-8", errors="replace")
+            st.text_area(
+                "Or paste your previous prophetic vision",
+                key="previous_vision_text",
+                height=260,
+                placeholder="Paste your previously created prophetic vision here...",
+            )
+            render_sections(REVIEW_VISION_SECTIONS)
+        else:
+            st.caption("Answer Parts 1-5 to create a new prophetic vision. The more you answer, the richer your prophetic vision will be.")
+            render_sections(NEW_VISION_SECTIONS)
 
-    master_prompt = build_master_prompt(
-        selected_versions=selected_versions or ["One-page prophetic vision"],
-        tone=tone,
-        audience=audience,
-        extra_guidance=extra_guidance,
-    )
+    previous_vision = text_value("previous_vision_text")
+    if review_mode:
+        master_prompt = build_review_prompt(
+            selected_versions=selected_versions or ["One-page prophetic vision"],
+            tone=tone,
+            audience=audience,
+            extra_guidance=extra_guidance,
+            model=model,
+            previous_vision=previous_vision,
+        )
+        action_label = "Update Prophetic Vision"
+        action_icon = ":material/autorenew:"
+        spinner_text = "Updating your prophetic vision..."
+        response_key = "updated_prophetic_vision_response"
+        download_name = "updated_prophetic_vision.md"
+    else:
+        master_prompt = build_master_prompt(
+            selected_versions=selected_versions or ["One-page prophetic vision"],
+            tone=tone,
+            audience=audience,
+            extra_guidance=extra_guidance,
+            model=model,
+            sections=NEW_VISION_SECTIONS,
+        )
+        action_label = "Create Prophetic Vision"
+        action_icon = ":material/add_notes:"
+        spinner_text = "Creating your prophetic vision..."
+        response_key = "prophetic_vision_response"
+        download_name = "prophetic_vision.md"
 
     with tab_prompt:
         st.subheader("Master Prompt")
@@ -389,28 +519,44 @@ def main() -> None:
         )
 
     with tab_grok:
-        st.subheader("Create Your Prophetic Vision")
-        st.write(":shimmer[Create your prophetic vision by clicking the button below. This will send the Master Prompt to the LLM.]")
-        if st.button("Create", type="primary", icon=":material/add_notes:"):
+        st.subheader("Review Your Prophetic Vision" if review_mode else "Create Your Prophetic Vision")
+        if review_mode:
+            st.write(":shimmer[Update your prophetic vision by clicking the button below.]")
+            st.caption("Adjust the setting in the sidebar to give the model extra guidance on how to update your vision, then click the button to generate an updated version of your prophetic vision that reflects your current growth and needed adjustments.")
+            if not previous_vision:
+                st.success("Upload or paste your previous prophetic vision in the Questions tab before updating it.")
+        else:
+            st.write(":shimmer[Create your prophetic vision by clicking the button below.]")
+            st.caption("Adjust the settings in the sidebar to give the model guidance on how to create your vision, then click the button to generate several versions of your prophetic vision that you can reflect on, share with loved ones, and download for safekeeping.")
+        if st.button(
+            action_label,
+            type="primary",
+            icon=action_icon,
+            disabled=review_mode and not previous_vision,
+        ):
             try:
-                with st.spinner("Creating your prophetic vision..."):
+                with st.spinner(spinner_text):
                     response = ask_groq(master_prompt, model=model)
             except Exception as error:
                 st.error(f"Grok call failed: {error}")
             else:
-                st.session_state["prophetic_vision_response"] = response
+                st.session_state[response_key] = remove_thinking_blocks(response)
 
-        if st.session_state.get("prophetic_vision_response"):
+        if st.session_state.get(response_key):
+            if review_mode:
+                st.info("Download your updated prophetic vision so you can upload it again for a future review.")
+            else:
+                st.info("Download your prophetic vision so you can upload it in the future to adjust or review your vision.")
             st.download_button(
                 "Download Markdown",
-                data=st.session_state["prophetic_vision_response"],
-                file_name="prophetic_vision.md",
+                data=st.session_state[response_key],
+                file_name=download_name,
                 mime="text/markdown",
                 type="secondary",
                 icon=":material/download:",
             )
             st.divider()
-            st.markdown(st.session_state["prophetic_vision_response"])
+            st.markdown(st.session_state[response_key])
 
 
 if __name__ == "__main__":
