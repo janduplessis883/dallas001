@@ -3,16 +3,34 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
-import requests
 import streamlit as st
+from groq import Groq
 
+# Initialize the Groq client
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+
+
+# Simple function to get a response from Groq
+@st.cache_resource
+def ask_groq(prompt: str, model: str = "openai/gpt-oss-120b"):
+    chat_completion = client.chat.completions.create(
+        messages=[
+            {
+                "role": "user",
+                "content": prompt,
+            }
+        ],
+        model=model,
+    )
+
+    return chat_completion.choices[0].message.content
 
 st.set_page_config(
     page_title="Prophetic Vision Builder",
     page_icon="PV",
     layout="wide",
 )
-
+st.logo('images/logo2.png', size='large')
 
 @dataclass(frozen=True)
 class Question:
@@ -27,6 +45,7 @@ class Section:
     title: str
     intro: str
     questions: tuple[Question, ...]
+    icon: str = ":material/article:"
 
 
 STYLE_OPTIONS = [
@@ -49,11 +68,8 @@ DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
 
 GROQ_MODEL_OPTIONS = {
     "openai/gpt-oss-120b": "OpenAI GPT-OSS 120B",
-    "openai/gpt-oss-20b": "OpenAI GPT-OSS 20B",
     "llama-3.3-70b-versatile": "Llama 3.3 70B",
-    "llama-3.1-8b-instant": "Llama 3.1 8B Instant",
     "groq/compound": "Groq Compound",
-    "groq/compound-mini": "Groq Compound Mini",
     "meta-llama/llama-4-scout-17b-16e-instruct": "Llama 4 Scout 17B 16E",
     "qwen/qwen3-32b": "Qwen3 32B",
 }
@@ -63,6 +79,7 @@ SECTIONS = [
         Section(
             title=f"Part 1: Pattern or Behavior #{index}",
             intro="Name one pattern or behavior that is not serving you, then complete the reflection prompts for it.",
+            icon=":material/repeat:",
             questions=(
                 Question(f"pattern_{index}", f"Pattern or behavior #{index}", height=70),
                 Question(
@@ -89,6 +106,7 @@ SECTIONS = [
     Section(
         title="Part 2: Imagining Your Future Self",
         intro="Imagine yourself 6 months to 1 year from now, looking back at today.",
+        icon=":material/visibility:",
         questions=(
             Question("future_internal_shift", "The most significant internal shift I see in myself is..."),
             Question("future_challenges", "The new way I handle challenges is..."),
@@ -98,6 +116,7 @@ SECTIONS = [
     Section(
         title="Part 3: Identifying Your Highest Self",
         intro="Name the qualities, responses, and relationship to your past that belong to your highest self.",
+        icon=":material/self_improvement:",
         questions=(
             Question(
                 "highest_qualities",
@@ -116,6 +135,7 @@ SECTIONS = [
     Section(
         title="Part 4: Discovering Your Themes",
         intro="Look for the repeating themes that are emerging from your answers.",
+        icon=":material/hub:",
         questions=(
             Question(
                 "theme_emotional",
@@ -134,6 +154,7 @@ SECTIONS = [
     Section(
         title="Part 5: Building Your Vision",
         intro="Use the house metaphor from the worksheet to shape the structure of the vision.",
+        icon=":material/foundation:",
         questions=(
             Question(
                 "vision_foundation",
@@ -152,6 +173,7 @@ SECTIONS = [
     Section(
         title="Part 6: Drafting Your Vision Statement",
         intro="Begin with the central statement.",
+        icon=":material/edit_note:",
         questions=(
             Question("vision_statement", '"I am becoming someone who..."', height=130),
         ),
@@ -159,6 +181,7 @@ SECTIONS = [
     Section(
         title="Part 7: Testing Your Vision",
         intro="Notice how the vision lands in your body and your daily life.",
+        icon=":material/fact_check:",
         questions=(
             Question("test_feel", "When I read this vision, I feel..."),
             Question("test_daily", "I can live this vision in my daily life by..."),
@@ -168,6 +191,7 @@ SECTIONS = [
     Section(
         title="Part 8: Refining Your Vision",
         intro="Make the vision clearer, more authentic, and more inspiring.",
+        icon=":material/tune:",
         questions=(
             Question("refine_specific", "I am changing this part to be more specific..."),
             Question("refine_forced", "This part feels forced because..."),
@@ -178,6 +202,7 @@ SECTIONS = [
     Section(
         title="Part 9: Bringing Your Vision To Life",
         intro="Create simple rhythms that help the vision become embodied.",
+        icon=":material/wb_sunny:",
         questions=(
             Question("life_morning", "Morning connection: How will you connect with your vision each morning?"),
             Question(
@@ -190,6 +215,7 @@ SECTIONS = [
     Section(
         title="Part 10: Tracking Your Transformation",
         intro="Define how you will notice growth and revisit the vision over time.",
+        icon=":material/monitoring:",
         questions=(
             Question("track_growth", "I notice I am growing when..."),
             Question("track_challenge_from", "My responses to challenges are shifting from..."),
@@ -204,47 +230,11 @@ SECTIONS = [
 ]
 
 
-def ask_groq(prompt: str, model: str = DEFAULT_GROQ_MODEL) -> str:
-    api_key = st.secrets.get("GROQ_API_KEY")
-    if not api_key:
-        raise RuntimeError("Add GROQ_API_KEY to `.streamlit/secrets.toml`.")
-
-    payload = {
-        "model": model,
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "You are a careful, emotionally intelligent writing partner. "
-                    "Return polished prophetic vision drafts based only on the user's worksheet responses."
-                ),
-            },
-            {"role": "user", "content": prompt},
-        ],
-        "temperature": 0.8,
-    }
-    response = requests.post(
-        "https://api.groq.com/openai/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "User-Agent": "prophetic-vision-builder/1.0",
-        },
-        json=payload,
-        timeout=60,
+def ask_grok(prompt: str) -> str:
+    """Replace this stub with your Grok API call using st.secrets."""
+    raise NotImplementedError(
+        "Add your Grok API call here, then return the model response as a string."
     )
-
-    try:
-        data = response.json()
-    except ValueError as error:
-        raise RuntimeError(f"Groq returned a non-JSON response: {response.text[:500]}") from error
-
-    if not response.ok:
-        detail = data.get("error", {}).get("message") or data.get("message") or response.text
-        raise RuntimeError(f"Groq returned an error: {detail}")
-
-    return data["choices"][0]["message"]["content"]
 
 
 def text_value(key: str) -> str:
@@ -292,7 +282,7 @@ def build_master_prompt(
     guidance = extra_guidance.strip() or "Keep the language emotionally honest, specific, empowering, and grounded."
     audience_line = audience.strip() or "the person who completed this worksheet"
 
-    return f"""You are helping {audience_line} write a prophetic vision for personal transformation.
+    return f"""You are Groq, helping {audience_line} write a prophetic vision for personal transformation.
 
 Create the following versions:
 {versions}
@@ -318,40 +308,41 @@ Return the versions with clear headings. End with 3 brief integration prompts th
 
 def render_sidebar() -> tuple[list[str], str, str, str, str]:
     with st.sidebar:
-        st.header("Groq Output")
+        st.header(":material/settings: LLM Settings")
+        model = st.selectbox(
+            "LLM Model",
+            options=list(GROQ_MODEL_OPTIONS.keys()),
+            index=list(GROQ_MODEL_OPTIONS.keys()).index(DEFAULT_GROQ_MODEL),
+            format_func=lambda model_id: f"{GROQ_MODEL_OPTIONS[model_id]} ({model_id})",
+        )
         selected_versions = st.multiselect(
             "Vision versions",
             VERSION_OPTIONS,
             default=[
                 "Short daily declaration",
                 "One-page prophetic vision",
-                "Detailed transformational blueprint",
             ],
         )
         tone = st.selectbox("Tone", STYLE_OPTIONS, index=0)
-        model = st.selectbox(
-            "Groq model",
-            options=list(GROQ_MODEL_OPTIONS.keys()),
-            index=list(GROQ_MODEL_OPTIONS.keys()).index(DEFAULT_GROQ_MODEL),
-            format_func=lambda model_id: f"{GROQ_MODEL_OPTIONS[model_id]} ({model_id})",
-        )
         audience = st.text_input(
-            "Who is this for?",
-            placeholder="Example: me, a client in recovery, a coaching participant",
+            "What is your name?",
+            placeholder="Enter your name",
         )
         extra_guidance = st.text_area(
             "Extra instructions",
-            placeholder="Anything Groq should know about voice, faith language, length, or boundaries.",
+            placeholder="Specify voice, sexual orientation, faith language, length, or boundaries as required",
             height=120,
+            help="Use this space to give the model any extra instructions that will help it create a vision that feels authentic and inspiring to you. For example, you can specify a preferred voice, any faith language you want included or excluded, length preferences, or anything else that will help guide the model to create something that really resonates with you.",
         )
-        st.caption("Uses `GROQ_API_KEY` from `.streamlit/secrets.toml`.")
+        st.caption("`© 2026 Coaching with Dr. Dallas Bragg`")
+        st.image('images/logo3.png', width=200)
     return selected_versions, tone, audience, extra_guidance, model
 
 
 def main() -> None:
-    st.title("Prophetic Vision Builder")
-    st.write(
-        "Work through the prompts section by section, then generate a master prompt and send it to Groq to turn your answers into several versions of a prophetic vision."
+    st.title(":material/self_improvement: Prophetic Vision Builder")
+    st.caption(
+        "Work through the prompts section by section, then generate several versions of your prophetic vision by clicking the **Create button** in the last tab."
     )
 
     selected_versions, tone, audience, extra_guidance, model = render_sidebar()
@@ -360,15 +351,17 @@ def main() -> None:
     answered, total = completion_stats(all_questions)
     st.progress(answered / total if total else 0, text=f"{answered} of {total} prompts completed")
 
-    tab_questions, tab_prompt, tab_groq = st.tabs(["Questions", "Master Prompt", "Groq Draft"])
+    tab_questions, tab_prompt, tab_grok = st.tabs(["Questions", "Master Prompt", "Create Your Prophetic Vision"])
 
     with tab_questions:
+        st.caption("Answer the reflection prompts in each section. The more you answer, the richer your prophetic vision will be. Don't worry about answering them all - you can always come back and fill in more later to deepen the vision over time.")
         for index, section in enumerate(SECTIONS):
             answered_section, total_section = completion_stats(section.questions)
             expanded = index == 0 or (answered_section > 0 and answered_section < total_section)
             with st.expander(
                 f"{section.title} - {answered_section}/{total_section}",
                 expanded=expanded,
+                icon=section.icon,
             ):
                 st.write(section.intro)
                 for question in section.questions:
@@ -384,7 +377,7 @@ def main() -> None:
     with tab_prompt:
         st.subheader("Master Prompt")
         st.text_area(
-            "Copy this into another tool, or use the Groq Draft tab to send it to Groq.",
+            "Review the prompt that will be sent to Groq when you press Create.",
             value=master_prompt,
             height=620,
         )
@@ -395,30 +388,29 @@ def main() -> None:
             mime="text/plain",
         )
 
-    with tab_groq:
-        st.subheader("Draft With Groq")
-        st.write("Send the generated master prompt to Groq and draft the selected vision versions.")
-        if st.button("Ask Groq", type="primary", disabled=answered == 0):
+    with tab_grok:
+        st.subheader("Create Your Prophetic Vision")
+        st.write(":shimmer[Create your prophetic vision by clicking the button below. This will send the Master Prompt to the LLM.]")
+        if st.button("Create", type="primary", icon=":material/add_notes:"):
             try:
-                with st.spinner("Asking Groq..."):
+                with st.spinner("Creating your prophetic vision..."):
                     response = ask_groq(master_prompt, model=model)
             except Exception as error:
-                st.error(f"Groq call failed: {error}")
+                st.error(f"Grok call failed: {error}")
             else:
-                st.session_state["groq_response"] = response
+                st.session_state["prophetic_vision_response"] = response
 
-        if answered == 0:
-            st.info("Fill in at least one worksheet prompt before asking Groq.")
-
-        if st.session_state.get("groq_response"):
+        if st.session_state.get("prophetic_vision_response"):
             st.download_button(
-                "Download draft",
-                data=st.session_state["groq_response"],
-                file_name="prophetic_vision_draft.md",
+                "Download Markdown",
+                data=st.session_state["prophetic_vision_response"],
+                file_name="prophetic_vision.md",
                 mime="text/markdown",
+                type="secondary",
+                icon=":material/download:",
             )
             st.divider()
-            st.markdown(st.session_state["groq_response"])
+            st.markdown(st.session_state["prophetic_vision_response"])
 
 
 if __name__ == "__main__":
