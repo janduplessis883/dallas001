@@ -27,7 +27,7 @@ def ask_groq(prompt: str, model: str = "llama-3.3-70b-versatile"):
     return chat_completion.choices[0].message.content
 
 st.set_page_config(
-    page_title="Prophetic Vision Builder",
+    page_title="Prophetic Vision Builder - © Coaching with Dr. Dallas Bragg",
     page_icon="PV",
     layout="wide",
 )
