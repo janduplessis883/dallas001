@@ -77,7 +77,7 @@ GROQ_MODEL_OPTIONS = {
 SECTIONS = [
     *[
         Section(
-            title=f"Part 1: Pattern or Behavior #{index}",
+            title=f"Part 1: **Pattern or Behavior** Question {index}",
             intro="Name one pattern or behavior that is not serving you, then complete the reflection prompts for it.",
             icon=":material/repeat:",
             questions=(
@@ -104,7 +104,7 @@ SECTIONS = [
         for index in range(1, 4)
     ],
     Section(
-        title="Part 2: Imagining Your Future Self",
+        title="Part 2: **Imagining Your Future Self**",
         intro="Imagine yourself 6 months to 1 year from now, looking back at today.",
         icon=":material/visibility:",
         questions=(
@@ -114,7 +114,7 @@ SECTIONS = [
         ),
     ),
     Section(
-        title="Part 3: Identifying Your Highest Self",
+        title="Part 3: **Identifying Your Highest Self**",
         intro="Name the qualities, responses, and relationship to your past that belong to your highest self.",
         icon=":material/self_improvement:",
         questions=(
@@ -133,7 +133,7 @@ SECTIONS = [
         ),
     ),
     Section(
-        title="Part 4: Discovering Your Themes",
+        title="Part 4: **Discovering Your Themes**",
         intro="Look for the repeating themes that are emerging from your answers.",
         icon=":material/hub:",
         questions=(
@@ -152,7 +152,7 @@ SECTIONS = [
         ),
     ),
     Section(
-        title="Part 5: Building Your Vision",
+        title="Part 5: **Building Your Vision**",
         intro="Use the house metaphor from the worksheet to shape the structure of the vision.",
         icon=":material/foundation:",
         questions=(
@@ -171,7 +171,7 @@ SECTIONS = [
         ),
     ),
     Section(
-        title="Part 6: Drafting Your Vision Statement",
+        title="Part 6: **Drafting Your Vision Statement**",
         intro="Begin with the central statement.",
         icon=":material/edit_note:",
         questions=(
@@ -179,7 +179,7 @@ SECTIONS = [
         ),
     ),
     Section(
-        title="Part 7: Testing Your Vision",
+        title="Part 7: **Testing Your Vision**",
         intro="Notice how the vision lands in your body and your daily life.",
         icon=":material/fact_check:",
         questions=(
@@ -189,7 +189,7 @@ SECTIONS = [
         ),
     ),
     Section(
-        title="Part 8: Refining Your Vision",
+        title="Part 8: **Refining Your Vision**",
         intro="Make the vision clearer, more authentic, and more inspiring.",
         icon=":material/tune:",
         questions=(
@@ -200,7 +200,7 @@ SECTIONS = [
         ),
     ),
     Section(
-        title="Part 9: Bringing Your Vision To Life",
+        title="Part 9: **Bringing Your Vision To Life**",
         intro="Create simple rhythms that help the vision become embodied.",
         icon=":material/wb_sunny:",
         questions=(
@@ -213,7 +213,7 @@ SECTIONS = [
         ),
     ),
     Section(
-        title="Part 10: Tracking Your Transformation",
+        title="Part 10: **Tracking Your Transformation**",
         intro="Define how you will notice growth and revisit the vision over time.",
         icon=":material/monitoring:",
         questions=(
